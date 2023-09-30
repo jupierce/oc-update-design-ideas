@@ -141,6 +141,11 @@ spec:
     # Nodes impacted by the finding
     nodes:
     - ip-10-0-137-108.ec2.internal
+  
+  # Noisy informers that aren't ultimately providing value to the administartor
+  # may be silenced. 
+  ignoreInformers:
+  - an-annoying-opetional-operator
 
   impact:
     # System level insights with no impact are not reported individually in update status UIs like
@@ -298,6 +303,7 @@ metadata:
   name: update-plan-4.14.4:mco-update-informer-486
 spec:
   updatePlanResourceVersion: "43980"
+  planForVersion: "4.14.4""
 
   scope:
     # Nodes impacted by the finding
