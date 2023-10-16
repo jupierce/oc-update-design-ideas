@@ -141,7 +141,9 @@ spec:
       # Similar to NodePool.pausedUntil, but specific to MachineDeployment
       # release updates. NodePool.pausedUntil pauses ALL reconciliation.
       pausedUntil: true
-      
+
+      # Setting enforcing=false cannot override an enforcing window 
+      # at the HostedCluster level.
       enforcing: true
       
 status:
@@ -221,6 +223,8 @@ spec:
       # for an indefinite pause.
       pausedUntil: true
       
+      # Setting enforcing=false cannot override an enforcing window 
+      # at the HostedCluster level.
       enforcing: true
       
   # Adopted from NodePool to create consistency and further our goal
@@ -324,3 +328,55 @@ wants to pause the rest of the rollout and resume the next day.
 
 They set `MachineSet.spec.versionManagement.pausedUntil=true`. The assisted update process
 will stop. The administrator can resume the update the next day by setting `pausedUpdate=false`.
+
+## Canary Update on Standalone
+A canary upgrade allows an administrator to test workloads on a new version of the platform
+without committing to it. Canary updates, here, are limited to worker nodes (control-plane
+updates affect all masters).
+
+With the features described in this design, canary upgrades can be achieved in several
+ways. One straightforward method will be described. 
+
+*Control Plane Setup*
+The administrator has recently updated their control-plane. Their control-plane 
+updates are controlled using a maintenance window configured in `ClusterVersion`. The cluster
+is outside of a maintenance window when the administrator decides to perform the canary 
+testing.
+
+*Main MachineSet Setup*
+The cluster has one MachineSet for worker nodes (machine-set-a), machines of which
+are currently one version behind the control-plane. To ensure they have control over when
+a new release is rolled out to workers, the administrator has the `MachineSet` configured
+with `versionManagement.pausedUntil=true`.
+
+*Canary MachineSEt Setup*
+The administrator creates a new `MachineSet` (machine-set-b). They configure the 
+`release` field to point to the release payload currently associated with the control-plane.
+
+*Process*
+The administrator scales up `machine-set-b`. The `release` value in this `MachineSet` match
+the current release of the control-plane, so the version of software running on the newly
+created nodes matches the control-plane.
+
+The administrator then cordons nodes associated with `machine-set-a` so that they cannot 
+accept new workloads.
+
+Next, the administrator drains one or more of the existing nodes from `machine-set-a`. 
+This should force workloads off of `machine-set-a` and on to `machine-set-b`. 
+
+As drained workloads are rescheduled onto the canary nodes, the functionality of the 
+workloads running on the canary nodes should be tested.
+
+*Rollback*
+If testing fails, the administrator can uncordon nodes from `machine-set-a` and
+delete `machine-set-b`. This will drain the canary nodes and return the workloads
+to workers running the previous version of the platform.
+
+*Adoption*
+The administrator may choose to delete `machine-set-a` and keep workloads on 
+the new nodes of `machine-set-b`. However, if they prefer, the administrator can change 
+the release field on `machine-set-a` to match the new release. They can then trigger 
+an assisted update of `machine-set-a`.  The already cordoned/drained nodes should
+quickly be replaced. The administrator may then delete `machine-set-b`. `machine-set-b`
+nodes will be drained and the workloads will migrated back to the now up-to-date 
+`machine-set-a` nodes.
