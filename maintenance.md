@@ -3,7 +3,7 @@ Maintenance Windows and Draining
 
 # Design Goals
 1. Ensure that HyperShift / OCM has a first class experience when managing maintenance windows.
-2. Ensure that service delivery has a means of ensuring viable update windows (e.g. a customer cannot provide only 15 minutes a month).
+2. Ensure that Service Delivery has a means of ensuring viable update windows (e.g. a customer cannot provide only 15 minutes a month).
 3. Replace aspects of the ManagedUpgradeOperator (overriding PDBs on drain timeout / surge / etc) with core product.
 4. Provide similar drain & surge functionality for standalone cluster installations.
 5. Provide these experiences while furthering the goals of "oc adm update status", "pre-checks", and separating control-plane and worker node upgrades for standalone.
@@ -58,7 +58,7 @@ NodePool Spec:
 MachineDeployment offers a [machine deployment strategy](https://github.com/kubernetes-sigs/cluster-api/blob/efb06799d0efa082a74f39976ee29587014fcf15/api/v1beta1/machinedeployment_types.go#L122) 
 configuration spec.
 - [Rolling Update Strategy](https://github.com/kubernetes-sigs/cluster-api/blob/efb06799d0efa082a74f39976ee29587014fcf15/api/v1beta1/machinedeployment_types.go#L172-L210) including surge replacement. 
-- There is also a strategy called "[OnDelete](https://github.com/kubernetes-sigs/cluster-api/pull/4346)" where machines within a machineset are only replaced when they are deleted.
+- There is also a strategy called "[OnDelete](https://github.com/kubernetes-sigs/cluster-api/pull/4346)" where machines within a MachineSet are only replaced when they are deleted.
 
 Once HyperShift updates a MachineDeployment, it presently has no interaction at all with the rollout of worker nodes.
 
@@ -66,10 +66,10 @@ Once HyperShift updates a MachineDeployment, it presently has no interaction at 
 When exploring how to manage maintenance windows, the following may be interesting tools in the toolbox:
 - [Experimental Runtime SDK](https://cluster-api.sigs.k8s.io/tasks/experimental-features/runtime-sdk/) which allows extensions to deeply tie into the lifecycle of Clusters / Machines.
 - Cluster and MachineDeployment have pause semantics. In MachineDeployment, both a spec field (probably [buggy right now](https://github.com/kubernetes-sigs/cluster-api/issues/8629)) and an annotation `cluster.x-k8s.io/paused`. It looks like MachineSet supports pausing reconciliation when the [Cluster OR MachineSet is paused](https://github.com/kubernetes-sigs/cluster-api/blob/efb06799d0efa082a74f39976ee29587014fcf15/internal/controllers/machineset/machineset_controller.go#L156). 
-- [OnDelete](https://github.com/kubernetes-sigs/cluster-api/pull/4346) for strict manual controle? It does not look like the [machine deployment strategy](https://github.com/kubernetes-sigs/cluster-api/blob/efb06799d0efa082a74f39976ee29587014fcf15/api/v1beta1/machinedeployment_types.go#L122) supports "[in place propagation](https://cluster-api.sigs.k8s.io/developer/architecture/controllers/machine-deployment#in-place-propagation)" (i.e. updating it might case a full rollout).
+- [OnDelete](https://github.com/kubernetes-sigs/cluster-api/pull/4346) for strict manual control? It does not look like the [machine deployment strategy](https://github.com/kubernetes-sigs/cluster-api/blob/efb06799d0efa082a74f39976ee29587014fcf15/api/v1beta1/machinedeployment_types.go#L122) supports "[in place propagation](https://cluster-api.sigs.k8s.io/developer/architecture/controllers/machine-deployment#in-place-propagation)" (i.e. updating it might case a full rollout).
 
 # Design
-Standalone clusters use MAPI and HyperShift uses CAPI on the management cluster. As such, we strie to have a similar
+Standalone clusters use MAPI and HyperShift uses CAPI on the management cluster. As such, we strive to have a similar
 feel for both environments, but each system will need to have its own controller implementation.
 
 ## HyperShift / CAPI Maintenance Window
@@ -86,36 +86,36 @@ The higher level HyperShift controller would interpret a new specification field
 kind: HostedCluster
 spec:
   versionManagement:  
-      # The maintenanceWindows of a HostedCluster controls the times during which 
-      # reconciliation is permitted for either control plane or worker nodes.
-      # Outside of maintenance windows (or inside any exclusion window), HyperShift
-      # will not reconcile release changes with the associated CAPI Cluster object.
-      # An administrator who wishes to completely disable update related reconciliation 
-      # regardless of maintenanceWindows may set spec.versionManagement.pausedUntil to prevent
-      # further updates.
-      # When paused for any reason (maintenance or pausedUntil), HyperShift will
-      # set the backing CAPI Cluster object to be paused. This should stop
-      # MachineDeployments/Sets from reconciling.
-      maintenanceWindows:
-        permit: "FREQ=WEEKLY;INTERVAL=1;BYDAY=SU,SA"
-        exclude:
-        - begin: 2023-12-20
-          end: 2024-01-03
-          
-      # Similar to NodePool.HostedCluster, but specific to MachineDeployment
-      # release updates. HostedCluster.pausedUntil pauses ALL reconciliation.
-      pausedUntil: false
-      
-      # A boolean value indicating whether versionManagement options are in effect.
-      # If false, pausedUntil and maintenanceWindows are ignored. This is intended
-      # to provide administrators / OCM an easy way to allow an update to proceed
-      # without having to delete spec.versionManagement stanzas. When the update
-      # is complete, they can set enforcing=true, and their previous settings will
-      # take effect once more.
-      enforcing: true
+    # The maintenanceWindows of a HostedCluster controls the times during which 
+    # reconciliation is permitted for either control plane or worker nodes.
+    # Outside of maintenance windows (or inside any exclusion window), HyperShift
+    # will not reconcile release changes with the associated CAPI Cluster object.
+    # An administrator who wishes to completely disable update related reconciliation 
+    # regardless of maintenanceWindows may set spec.versionManagement.pausedUntil to prevent
+    # further updates.
+    # When paused for any reason (maintenance or pausedUntil), HyperShift will
+    # set the backing CAPI Cluster object to be paused. This should stop
+    # MachineDeployments/Sets from reconciling.
+    maintenanceWindows:
+      permit: "FREQ=WEEKLY;INTERVAL=1;BYDAY=SU,SA"
+      exclude:
+      - begin: 2023-12-20
+        end: 2024-01-03
+        
+    # Similar to NodePool.spec.pausedUntil, but specific to MachineDeployment
+    # release updates. HostedCluster.pausedUntil pauses ALL reconciliation.
+    pausedUntil: false
+    
+    # A boolean value indicating whether versionManagement options are in effect.
+    # If false, pausedUntil and maintenanceWindows are ignored. This is intended
+    # to provide administrators / OCM an easy way to allow an update to proceed
+    # without having to delete spec.versionManagement stanzas. When the update
+    # is complete, they can set enforcing=true, and their previous settings will
+    # take effect once more.
+    enforcing: true
           
 status:
-  versionMaintenance:
+  versionManagement:
     nextWindow: "2023-09-01 00:00:00UTC"
     nextWindowDuration: "48h"   
     changesPending: true
@@ -129,36 +129,38 @@ windows can only reduce the maintenance windows expressed by `HostedCluster`. `N
 kind: NodePool
 spec:
   versionManagement:
-      # When outside of a maintenance window, within an exclusion window,
-      # or explicitly paused, the NodePool controller will pause the associated
-      # CAPI MachineDeployment/Set so that they stop reconciliation.
-      # CAPI MachineSet already respects pause at both Cluster and MachineSet.
-      maintenanceWindows:
-        exclude:
-        - begin: 2023-12-20
-          end: 2024-01-03
-          
-      # Similar to NodePool.pausedUntil, but specific to MachineDeployment
-      # release updates. NodePool.pausedUntil pauses ALL reconciliation.
-      pausedUntil: true
+    # When outside of a maintenance window, within an exclusion window,
+    # or explicitly paused, the NodePool controller will pause the associated
+    # CAPI MachineDeployment/Set so that they stop reconciliation.
+    # CAPI MachineSet already respects pause at both Cluster and MachineSet.
+    maintenanceWindows:
+      exclude:
+      - begin: 2023-12-20
+        end: 2024-01-03
+        
+    # Similar to NodePool.spec.pausedUntil, but specific to MachineDeployment
+    # release updates. NodePool.spec.pausedUntil pauses ALL reconciliation. 
+    # NodePool.spec.versionManagement.pausedUntil field pauses only 
+    # reconciliation related to version management.
+    pausedUntil: true
 
-      # Setting enforcing=false cannot override an enforcing window 
-      # at the HostedCluster level.
-      enforcing: true
+    # Setting enforcing=false cannot override an enforcing window 
+    # at the HostedCluster level.
+    enforcing: true
       
 status:
-  versionMaintenance:
+  versionManagement:
     # window calculation respects HostedCluster
     clusterConstraint:
-        nextWindow: "2023-09-01 00:00:00UTC" 
-        nextWindowDuration: "48h"
+      nextWindow: "2023-09-01 00:00:00UTC" 
+      nextWindowDuration: "48h"
     # NodePool window calculation must fall within HostedCluster constraint.
     nextWindow: "None. Paused with pausedUntil"
     changesPending: true
 ```
 
 Having independent windows allows an administrator to capture semantics like:
-- Update my control plane frequently, but don't update my workers until I explicitly unpause a machineset during a valid maintenance window.
+- Update my control plane frequently, but don't update my workers until I explicitly unpause a MachineSet during a valid maintenance window.
 
 ### Constraints
 ServiceDelivery will want to restrict the update policies that can be configured. They will likely want to ensure that:
@@ -173,59 +175,59 @@ The ClusterVersion resource will be augmented to support a maintenance window (a
 kind: ClusterVersion
 spec:
   versionManagement:  # Intended to mirror HostedCluster.versionManagement.
-      # The maintenanceWindows of a standalone cluster controls the times during which 
-      # update related reconciliation is permitted for either control plane or worker nodes.
-      # Outside of maintenance windows (or inside any exclusion window), CVO
-      # will not reconcile release changes with the associated MachineConfig objects.
-      # An administrator who wishes to completely disable reconciliation 
-      # regardless of maintenanceWindows may set spec.versionManagement.pausedUntil to prevent
-      # further updates.
-      # When paused for any reason (maintenance or pausedUntil), HyperShift will
-      # set the backing CAPI Cluster object to be paused. This should stop
-      # MachineDeployments/Sets from reconciling.
-      maintenanceWindows:
-        permit: "FREQ=WEEKLY;INTERVAL=1;BYDAY=SU,SA"
-        exclude:
-        - begin: 2023-12-20
-          end: 2024-01-03
+    # The maintenanceWindows of a standalone cluster controls the times during which 
+    # update related reconciliation is permitted for either control plane or worker nodes.
+    # Outside of maintenance windows (or inside any exclusion window), CVO
+    # will not reconcile release changes with the associated MachineConfig objects.
+    # An administrator who wishes to completely disable reconciliation 
+    # regardless of maintenanceWindows may set spec.versionManagement.pausedUntil to prevent
+    # further updates.
+    # When paused for any reason (maintenance or pausedUntil), HyperShift will
+    # set the backing CAPI Cluster object to be paused. This should stop
+    # MachineDeployments/Sets from reconciling.
+    maintenanceWindows:
+      permit: "FREQ=WEEKLY;INTERVAL=1;BYDAY=SU,SA"
+      exclude:
+      - begin: 2023-12-20
+        end: 2024-01-03
           
     enforcing: true
         
 status:
-  versionMaintenance:
+  versionManagement:
     nextWindow: "2023-09-01 00:00:00UTC"
     nextWindowDuration: "48h"   
     changesPending: true
 ```
 
-Analogous to HyperShift NodePool, MAPI's MachineSet will be updated with a `versionManagement`
+Analogous to HyperShift NodePool, MachineConfigPool will be updated with a `versionManagement`
 specification. To improve the flexibility and reliability of updates, existing NodePool specs
-will be adopted into MachineSet. For example, [NodePool.NodePoolManagement](https://hypershift-docs.netlify.app/reference/api/#hypershift.openshift.io/v1beta1.NodePoolManagement)
+will be adopted into MachineConfigPool. For example, [NodePool.NodePoolManagement](https://hypershift-docs.netlify.app/reference/api/#hypershift.openshift.io/v1beta1.NodePoolManagement)
 provides fine-grained control over how a node is drained and replaced during an update.
 And [release](https://github.com/openshift/hypershift/blob/15c5cddfb44ca2636deca17fd6c3367336aff287/api/v1beta1/nodepool_types.go#L86)
 provides the ability for Machines to run different versions of OCP.
 
 ```yaml
-kind: MachineSet
+kind: MachineConfigPool
 spec:
   versionManagement:
-      # When outside of a maintenance window, within an exclusion window,
-      # or explicitly paused, the MachineSet controller will prevent any
-      # associated Machines from being updated.
-      maintenanceWindows:
-        exclude:
-        - begin: 2023-12-20
-          end: 2024-01-03
-      
-      # Similar to NodePool.pausedUntil, but specific to MachineSet
-      # release updates. MachineSet.pausedUntil pauses ALL reconciliation.
-      # Like other pausedUntil, this value can be a datetime or "true"
-      # for an indefinite pause.
-      pausedUntil: true
-      
-      # Setting enforcing=false cannot override an enforcing window 
-      # at the HostedCluster level.
-      enforcing: true
+    # When outside of a maintenance window, within an exclusion window,
+    # or explicitly paused, the MachineConfig controller will prevent any
+    # associated Machines from being updated.
+    maintenanceWindows:
+      exclude:
+      - begin: 2023-12-20
+        end: 2024-01-03
+    
+    # Similar to MachineConfigPool.spec.pause, but specific to MachineConfigPool
+    # release updates. MachineConfigPool.spec.pause pauses ALL reconciliation.
+    # Like other pausedUntil, this value can be a datetime or "true"
+    # for an indefinite pause.
+    pausedUntil: true
+    
+    # Setting enforcing=false cannot override an enforcing window 
+    # at the HostedCluster level.
+    enforcing: true
       
   # Adopted from NodePool to create consistency and further our goal
   # to improve the reliability of worker updates.
@@ -247,7 +249,7 @@ spec:
     image: "quay.io....@sha256"
       
 status:
-  versionMaintenance:
+  versionManagement:
     # window calculation respects ClusterVersion
     clusterConstraint:
         nextWindow: "2023-09-01 00:00:00UTC" 
@@ -282,16 +284,16 @@ the administrator's configuration and allow the control-plane update to proceed.
 
 ## Assisted Standalone Worker Update
 When OCP is ready to deprecate the link between control plane and worker updates, the 
-default install will set `MachineSet.spec.versionManagement.pauseUntil: assisted` .
+default install will set `MachineConfigPool.spec.versionManagement.pauseUntil: assisted` .
 
 This is interpreted by controllers as "true" - meaning that worker nodes will not be
 updated when the control-plane is updated. 
 
 `oc adm update worker-nodes start` can be used by administrators to start the "assisted" update.
 When start is triggered, if `pausedUntil=true` then oc will set this field to 
-`pausedUntil=false`. It will also annotate the `MachineSet` with something like `assisted-update=true`
+`pausedUntil=false`. It will also annotate the `MachineConfigPool` with something like `assisted-update=true`
 
-When Machines associated with the MachineSet have fully reconciled and updated, if the MachineSEt
+When Machines associated with the MachineConfigPool have fully reconciled and updated, if the MachineConfigPool
 has the `assisted-update=true` annotation, then `pausedUntil` will be set back to "true"
 and the annotation will be removed.
 
@@ -306,7 +308,7 @@ how workload nodes are replaced.
 `ClusterVersion.spec.versionManagement.maintenanceWindow.enforcing=false` allows control-plane
 updates to be triggered at any time.
 
-But the administrator configures `MachineSet.spec.machineManagement.replace.strategy=OnDelete` . 
+But the administrator configures `MachineConfigPool.spec.machineManagement.replace.strategy=OnDelete` . 
 This allows all reconciliation, but Machines will not automatically be replaced. 
 
 The administrator manually drains and reboots/deletes machines as they see fit.
@@ -319,14 +321,14 @@ configured and enforcing maintenanceWindows/exlcusions).
 
 ## Standalone Worker Node Rollback
 After an upgrade of worker nodes, the administrator determines that workloads are malfunctioning.
-Red Hat support suggests rolling back `MachineSet.spec.release.image` and starting the assisted 
+Red Hat support suggests rolling back `MachineConfigPool.spec.release.image` and starting the assisted 
 update process.
 
 ## Pausing Worker Updates on Standalone
-A MachineSet has taken a long time to drain and the administrator of a standalone cluster
+A MachineConfigPool has taken a long time to drain and the administrator of a standalone cluster
 wants to pause the rest of the rollout and resume the next day.
 
-They set `MachineSet.spec.versionManagement.pausedUntil=true`. The assisted update process
+They set `MachineConfigPool.spec.versionManagement.pausedUntil=true`. The assisted update process
 will stop. The administrator can resume the update the next day by setting `pausedUpdate=false`.
 
 ## Canary Update on Standalone
@@ -343,18 +345,18 @@ updates are controlled using a maintenance window configured in `ClusterVersion`
 is outside of a maintenance window when the administrator decides to perform the canary 
 testing.
 
-*Main MachineSet Setup*
-The cluster has one MachineSet for worker nodes (machine-set-a), machines of which
+*Main MachineConfigPool Setup*
+The cluster has one MachineConfigPool for worker nodes (mcp-a), machines of which
 are currently one version behind the control-plane. To ensure they have control over when
-a new release is rolled out to workers, the administrator has the `MachineSet` configured
+a new release is rolled out to workers, the administrator has the `MachineConfigPool` configured
 with `versionManagement.pausedUntil=true`.
 
-*Canary MachineSEt Setup*
-The administrator creates a new `MachineSet` (machine-set-b). They configure the 
+*Canary MachineConfigPool Setup*
+The administrator creates a new `MachineConfigPool` (mcp-b). They configure the 
 `release` field to point to the release payload currently associated with the control-plane.
 
 *Process*
-The administrator scales up `machine-set-b`. The `release` value in this `MachineSet` match
+The administrator scales up `mcp-b`. The `release` value in this `MachineConfigPool` match
 the current release of the control-plane, so the version of software running on the newly
 created nodes matches the control-plane.
 
