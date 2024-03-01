@@ -3,7 +3,7 @@ Update Status and Pre-Checks
 
 Several CRDs serve as an API to aggregate and share insights about potential update operations (pre-checks)
 and active update operations. A new controller, the Update Status Controller (USC), written and maintained by the
-OTA team interprets and operators on these CRDs.
+OTA team interprets and operates on these CRDs.
 
 Insights can be extended by local or remote systems which register themselves as an `UpdateInformer`.
 
@@ -87,7 +87,8 @@ apiVersion: config.openshift.io/v1beta1
 kind: UpdateInsightsRequest
 spec:
   # The clusterID in case a remote insight system needs to be able to identify the
-  # cluster asking for insights.
+  # cluster asking for insights. Security concern if someone can check for Insights
+  # for a cluster they don't own?
   "clusterID": "...",
 
   controlPlaneVersion: ...
@@ -373,11 +374,12 @@ UpdateStatus. Like UpdateStatus, UpdateInformers provide the content for UpdateP
 1. Multiple UpdatePlans can exist.
 2. They represent an analysis of a theoretical update vs an active one.
 3. They can denote "accepted" risks that the administrator has signed off on.
-4. By default, they are referenced by "oc adm update * start" to determine if all pre-check risks have been accepted.
+4. They can specify an interest in functional risks (e.g. "a version is not compatible with me", "the version has a bug which impacts this platform") vs. operational risks (e.g. "high node CPU use").
+5. By default, they are referenced by "oc adm update * start" to determine if all pre-check risks have been accepted.
 
 The API would operate as follows:
 1. `oc adm update status pre-checks --version 4.14.4` would create (or update) an UpdatePlan devoted to 4.14.4.
-2. UpdateInformers would be queried by the Update Status Controller to find both general (e.g. undrainable PDB) and version specific update insights (e.g. conditional edge warning). 
+2. UpdateInformers would be queried by the Update Status Controller to find operational (e.g. undrainable PDB) and functional, version specific update insights (e.g. conditional edge warning). 
 3. `pre-checks` waits for UpdatePlanInsight status to populated.
 4. Various UI facilities can but used to output the analysis of the pre-checks.
 5. Eventually the administrator decides to perform the update.
