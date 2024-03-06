@@ -281,3 +281,201 @@ Alternative Destinations (use "--to <version>" to see desination insights):
   to update directly to 4.16. So the path might be "4.15.2" -> "4.15.34" -> "4.16.8".
 - Alternative destinations are listed because `--more` can't move through two streams simultaneously. For example, 
   4.16.9 shows a major issue relevant to the cluster. The customer may want to avoid it by updating to 4.16.8 instead.
+
+### Update Long Path
+```
+$ oc adm update recommend --to minor --more
+
+(In this scenario, the user has pressed enter several times, bypassing standard options)
+---Press enter to continue----
+---Press enter to continue----
+---Press enter to continue----
+---Press enter to continue----
+
+
+** Mulutple intermediate updates are required to reach the recommended minor version **
+
+Version: 4.15.2
+Release Date: 03/15/20xx
+Reason:
+  - <server name> is running 4.15.1.
+  - 4.15.1 does not support update directly to 4.16.9.
+  - 4.15.1 supports updates to 4.15.2.
+  - 4.15.2 supports updates to 4.15.3.
+  - 4.15.3 supports updates to 4.16.9.
+Insights:
+  ...
+
+
+Followed By:
+
+Version: 4.15.3
+Release Date: 03/15/20xx
+Reason:
+  - <server name> is running 4.15.1.
+  - 4.15.1 does not support update directly to 4.16.9.
+  - 4.15.1 supports updates to 4.15.2.
+  - 4.15.2 supports updates to 4.15.3.
+  - 4.15.3 supports updates to 4.16.9.
+Insights:
+  ...
+
+
+Destination:
+
+Version: 4.16.9
+Release Date: 03/15/20xx
+Reason:
+  - <server name> is running 4.15.
+  - 4.16.9 is the latest supported version of the next minor.
+  - Upgrades from 4.15.34 to 4.16.9 are supported.
+Insights:
+  RELEVANT    SCOPE         SEVERITY    DESCRIPTION
+  -           Lifecycle     Info        An intermediate update is required to reach this minor.
+  Yes         Availability  Major       Workload scheduling...
+
+
+Alternative Destinations (use "--to <version>" to see desination insights):
+- [4.16.8] through [4.16.5]  
+- [4.16.3]
+```
+
+
+# Policy Engine Behaviors
+The examples use the following notation:
+- "4.y.z10" equates to "4.y.(z+10)".
+- "4.y.10z" equates to "4.y.(z-10)".
+- "4.y1.z" equates to "4.(y+1).?" where the version includes all fixes from 4.y.z. **It is not a literal match of patch version numbers.**
+- "4.y1.z10" equates to "4.(y+1).?" is a z-stream offset of 10 **after** the first version in 4.(y+1) containing all fixes from 4.y.z. 
+- "4.y1.10z" equates to "4.(y+1).?" and is z-stream offset of -10 **before** the first version in 4.(y+1) containing all fixes from 4.y.z.
+- "4.y-<channel>" indicates the content of Cincinnati channel.
+
+## Patch Steps
+
+```
+Query Policy: monthly
+Cluster Version: 4.y.z
+To: Patch
+4.y-ga: [4.y.0, 4.y.z30]
+4.y-monthly: 4.y.10z, 4.y.z1, 4.y.z10, 4.y.z20
+```
+**Outcome**: Path to 4.y.z20
+
+**Rationale**:
+Using the monthly policy, the user is expressing a desire for security currency. Their current version
+is not in the monthly channel, but that is irrelevant to their intent. The engine should find a path
+from 4.y.z to 4.y.z20.
+
+**More**: No additional options are provided as they are not current relative to the monthly policy. "Additional update recommendations are available with the default update policy".
+
+
+```
+Query Policy: monthly
+Cluster Version: 4.y.z
+To: Patch
+4.y-ga: [4.y.0, 4.y.z30]
+4.y-monthly: 4.y.10z, 4.y.1z
+```
+**Outcome**: None - Currently up to date.
+
+**Rationale**:
+The current version is greater than the currently monthly version.
+
+**More**: None.
+
+
+```
+Query Policy: monthly
+Cluster Version: 4.y.z
+To: Patch
+4.y-ga: [4.y.0, 4.y.z30]
+4.y-monthly: 4.y.10z, 4.y.z
+```
+**Outcome**: None - Currently up to date.
+
+**Rationale**:
+The current version is equal to the current monthly version.
+
+**More**: None.
+
+
+```
+Query Policy: default
+Cluster Version: 4.y.z
+To: Patch
+4.y-ga: [4.y.0, 4.y.z30]
+4.y-monthly: 4.y.10z, 4.y.z1, 4.y.z10, 4.y.z20
+```
+**Outcome**: Path to 4.y.z30
+
+**Rationale**:
+The user is requesting the latest supported release for 4.y.
+
+**More**: Each subsequent request will back up one .z patch level until 4.y.z1 is offered. 
+
+
+## Minor Steps
+
+```
+Query Policy: monthly
+Cluster Version: 4.y.z
+To: Minor
+4.y-ga: [4.y.0, 4.y.z30]
+4.y-monthly: 4.y.10z, 4.y.z1, 4.y.z10, 4.y.z20
+4.y1-ga: [4.y1.0, 4.y1.z30]
+4.y1-monthly: 4.y1.10z, 4.y1.1z, 4.y1.z10, 4.y1.z20
+```
+**Outcome**: Path to 4.y1.z20
+
+**Rationale**:
+The user is expressing a desire for:
+- Monthly security currency.
+- A minor bump.
+There is a version which satisfies both requests. The engine should find a path from 4.y.z to 4.y1.z20.
+
+**More**: No additional options are provided as they are not current relative to the monthly policy. "Additional update recommendations are available with the default update policy".
+
+
+```
+Query Policy: monthly
+Cluster Version: 4.y.z
+To: Minor
+4.y-ga: [4.y.0, 4.y.z30]
+4.y-monthly: 4.y.10z, 4.y.z1, 4.y.z10, 4.y.z20
+4.y1-ga: [4.y1.0, 4.y1.z30]
+4.y1-monthly: 4.y1.10z, 4.y1.2z
+```
+**Outcome**: Path to 4.y1.z
+
+**Rationale**:
+The user is expressing a desire for:
+- Monthly security currency.
+- A minor bump.
+- No interest in bleeding edge or a specific version.
+In this scenario, the 4.y1-monthly channel does not yet contain a version with the same fixes as the user's cluster
+on 4.y.z. The engine selects the minor version which is the minimum difference from the last version in 4.y1-monthly.
+
+When there is an attempt to move between minors, policy takes second priority to making the jump to the target
+minor. Policy can, however, influence how far into the y1 z-stream the recommended jump is. The policy recommends
+the minimum version that is at least as secure as what is in the 4.y1-monthly channel.
+
+**More**: No additional options are provided. There ARE more options just as good as 4.y.z, but we should stay consistent with other monthly policy outputs. "Additional update recommendations are available with the default update policy".
+
+
+```
+Query Policy: default
+Cluster Version: 4.y.z
+To: Minor
+4.y-ga: [4.y.0, 4.y.z30]
+4.y-monthly: 4.y.10z, 4.y.z1, 4.y.z10, 4.y.z20
+4.y1-ga: [4.y1.0, 4.y1.z30]
+4.y1-monthly: 4.y1.10z, 4.y1.1z
+```
+**Outcome**: Path to 4.y1.z30
+
+**Rationale**:
+The user is expressing a desire for:
+- The latest supported build.
+- A minor bump.
+
+**More**: Iteratively suggest down to 4.y1.z.
