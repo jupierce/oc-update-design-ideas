@@ -368,6 +368,7 @@ from 4.y.z to 4.y.z20.
 
 **More**: No additional options are provided as they are not current relative to the monthly policy. "Additional update recommendations are available with the default update policy".
 
+---
 
 ```
 Query Policy: monthly
@@ -383,6 +384,7 @@ The current version is greater than the currently monthly version.
 
 **More**: None.
 
+---
 
 ```
 Query Policy: monthly
@@ -398,6 +400,7 @@ The current version is equal to the current monthly version.
 
 **More**: None.
 
+---
 
 ```
 Query Policy: default
@@ -435,6 +438,7 @@ There is a version which satisfies both requests. The engine should find a path 
 
 **More**: No additional options are provided as they are not current relative to the monthly policy. "Additional update recommendations are available with the default update policy".
 
+---
 
 ```
 Query Policy: monthly
@@ -461,6 +465,7 @@ the minimum version that is at least as secure as what is in the 4.y1-monthly ch
 
 **More**: No additional options are provided. There ARE more options just as good as 4.y.z, but we should stay consistent with other monthly policy outputs. "Additional update recommendations are available with the default update policy".
 
+---
 
 ```
 Query Policy: default
@@ -479,3 +484,79 @@ The user is expressing a desire for:
 - A minor bump.
 
 **More**: Iteratively suggest down to 4.y1.z.
+
+
+## Includes
+Overview:
+1. When used with the monthly policy, the oldest version >= the last monthly which includes all fixes will be listed.
+2. When used with the default policy, the newest version, if it includes the fix, will be listed.
+
+Additional notation when considering includes:
+- "*4.?.?" indicates that the version includes the requested fix(es).
+
+```
+Query Policy: monthly
+Cluster Version: 4.y.z
+To: Patch
+Includes: Specified
+4.y-ga: [4.y.0, 4.y.z9, *4.y.z10, *4.y.z30]
+4.y-monthly: 4.y.10z, 4.y.z1, *4.y.z10, *4.y.z20
+```
+**Outcome**: Path to 4.y.z20
+
+**Rationale**:
+The latest monthly version contains the requested fix.
+
+**More**: No additional options are provided as they are not current relative to the monthly policy. "Additional update recommendations are available with the default update policy".
+
+---
+
+```
+Query Policy: monthly
+Cluster Version: 4.y.z
+To: Patch
+Includes: Specified
+4.y-ga: [4.y.0, 4.y.z30]
+4.y-monthly: 4.y.10z, 4.y.z1, 4.y.z10, 4.y.z20
+```
+**Outcome**: None.
+
+**Rationale**:
+No builds contain the requested fix. Warn user that they are behind the version in the monthly policy.
+
+**More**: None.
+
+---
+
+```
+Query Policy: monthly
+Cluster Version: 4.y.z
+To: Patch
+Includes: Specified
+4.y-ga: [4.y.0, 4.y.z9, *4.y.z10, *4.y.z30]
+4.y-monthly: 4.y.10z, 4.y.1z
+```
+**Outcome**: 4.y.z10
+
+**Rationale**:
+The includes takes priority over matching something directly in monthly. Matched version should be minimum over
+latest monthly.
+
+**More**: None.
+
+---
+
+```
+Query Policy: default
+Cluster Version: 4.y.z
+To: Patch
+Includes: Specified
+4.y-ga: [4.y.0, 4.y.9, *4.y.10, *4.y.z30]
+4.y-monthly: 4.y.10z, 4.y.z1, 4.y.z10, 4.y.z20
+```
+**Outcome**: Path to 4.y.z30
+
+**Rationale**:
+The latest supported release includes the fix.
+
+**More**: Each subsequent request will back up one .z patch level until 4.y.z10 is offered. 
