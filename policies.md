@@ -97,6 +97,10 @@ Flags:
                   "<version>". For example, "--to 4.18" will recommend an update path to reach the specified minor 
                   version.
 
+  --through       "<version>". Advanced. If an intermediate version is required to reach a destination version, constrain
+                  the recommendeations to include this intermediate version. One "through" per minor can be specified. 
+                  For example, "--to 4.21 --through 4.19.6 --through 4.20.4".
+
   --includes      A Red Hat issue identifier. Recommendation will include whether the release includes a change
                   for the indicated issue(s).
                   
@@ -271,16 +275,19 @@ Insights:
   Yes         Availability  Major       Workload scheduling...
 
 
-Alternative Destinations (use "--to <version>" to see desination insights):
+Alternative Destinations (use "--to <version>" to see destination insights):
 - [4.16.8] through [4.16.5]  
 - [4.16.3]
 ```
 
-- Running with `--more` would move back through 4.15 versions. It is possible that multiple intermediate versions
-  would be required given enough "more" queries. For example, if they query back to "4.15.2", it may also be unable
-  to update directly to 4.16. So the path might be "4.15.2" -> "4.15.34" -> "4.16.8".
-- Alternative destinations are listed because `--more` can't move through two streams simultaneously. For example, 
-  4.16.9 shows a major issue relevant to the cluster. The customer may want to avoid it by updating to 4.16.8 instead.
+- Running with `--more`:
+  - If no intermediate is recommended, step back one 4.16 version and present path.
+  - If an intermediate is recommended, step back through 4.15 versions. It is possible that multiple intermediate versions
+    would be required given enough "more" queries. For example, if they query back to "4.15.2", it may also be unable
+    to update directly to 4.16. So the path might be "4.15.2" -> "4.15.34" -> "4.16.8".
+- When a destination (or second intermediate) is listed, alternative versions are listed. 
+  This is because `--more` can't move backwards through multiple streams simultaneously. For example, 4.16.9 
+  shows a major issue relevant to the cluster. The customer may want to avoid it by updating to 4.16.8 instead.
 
 ### Update Long Path
 ```
@@ -335,7 +342,7 @@ Insights:
   Yes         Availability  Major       Workload scheduling...
 
 
-Alternative Destinations (use "--to <version>" to see desination insights):
+Alternative Destinations (use "--to <version>" to see destination insights):
 - [4.16.8] through [4.16.5]  
 - [4.16.3]
 ```
@@ -560,3 +567,57 @@ Includes: Specified
 The latest supported release includes the fix.
 
 **More**: Each subsequent request will back up one .z patch level until 4.y.z10 is offered. 
+
+## Early-Insights 
+
+The early-insights policy can be interpreted as `--to <latest version early-insights channel>`
+
+```
+Query Policy: early-insights
+Cluster Version: 4.y.z
+To: Patch
+4.y-early-insights: [4.y.0, 4.y.z31] 
+4.y-ga: [4.y.0, 4.y.z30]
+```
+**Outcome**: Path to 4.y.z31
+
+**Rationale**:
+User request has a clear answer. 
+
+**More**: Iteratively offer versions until 4.y.z1. Include information when version is only available through early-insights.
+
+---
+
+```
+Query Policy: early-insights
+Cluster Version: 4.y.z31
+To: Patch
+4.y-early-insights: [4.y.0, 4.y.z31] 
+4.y-ga: [4.y.0, 4.y.z30]
+```
+**Outcome**: None
+
+**Rationale**:
+User is already running the latest in early-insights.
+
+**More**: Iteratively offer versions until 4.y.z1. Include information when version is only available through early-insights.
+
+---
+
+```
+Query Policy: early-insights
+Cluster Version: 4.y.z31
+To: Minor
+4.y-early-insights: [4.y.0, 4.y.z31] 
+4.y-ga: [4.y.0, 4.y.z30]
+4.y1-early-insights: [4.y1.0, 4.y1.z12] 
+4.y1-ga: [4.y1.0, 4.y1.z12]
+```
+**Outcome**: Path to 4.y1.z12
+
+**Rationale**:
+Potentially multiple update steps to reach destination version. Note that z12 is also GA. It does not change the output.
+
+**More**: Iteratively offer paths until intermediate < 4.y.z1 OR all destinations < 4.y1.z. Include information when version is only available through early-insights.
+
+**Alternatives**: If an intermediate is being listed, show all alternative destinations.
